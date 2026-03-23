@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GreenGuard — Live IoT Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b1209;
+      --surface: #111f0e;
+      --surface2: #162813;
+      --border: #1e3a18;
+      --green: #4caf50;
+      --green-light: #81c784;
+      --green-dim: #2e7d32;
+      --yellow: #f9a825;
+      --red: #ef5350;
+      --text: #e8f5e9;
+      --text-muted: #7a9e7e;
+      --mono: 'Space Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(76,175,80,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(76,175,80,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* HEADER */
+    header {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 36px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(11,18,9,0.95);
+      backdrop-filter: blur(10px);
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon {
+      width: 36px; height: 36px; background: var(--green-dim);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .logo-text { font-family: var(--mono); font-size: 1.15rem; font-weight: 700; letter-spacing: 0.04em; color: var(--green-light); }
+    .logo-text span { color: var(--text-muted); font-weight: 400; }
+    .header-right { display: flex; align-items: center; gap: 20px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 7px;
+      background: rgba(46,125,50,0.2); border: 1px solid var(--green-dim);
+      border-radius: 20px; padding: 5px 14px;
+      font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; color: var(--green-light);
+    }
+    .live-dot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+    .timestamp { font-family: var(--mono); font-size: 0.7rem; color: var(--text-muted); }
+
+    /* PAGE */
+    .page { position: relative; z-index: 1; max-width: 1340px; margin: 0 auto; padding: 28px 24px 48px; }
+
+    /* STAT CARDS */
+    .stats-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; margin-bottom: 24px; }
+    @media(max-width:900px){.stats-row{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:580px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; transition: border-color .2s; }
+    .stat-card:hover { border-color: var(--green-dim); }
+    .stat-label { font-size:.65rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted); font-family:var(--mono); margin-bottom:6px; }
+    .stat-value { font-family:var(--mono); font-size:1.55rem; font-weight:700; color:var(--green-light); line-height:1; }
+    .stat-value.warn  { color: var(--yellow); }
+    .stat-value.alert { color: var(--red); }
+    .stat-unit { font-size:.68rem; color:var(--text-muted); margin-top:4px; }
+    .stat-bar { margin-top:10px; height:3px; background:var(--border); border-radius:4px; overflow:hidden; }
+    .stat-bar-fill { height:100%; border-radius:4px; background:var(--green); transition:width .8s ease; }
+    .stat-bar-fill.warn  { background:var(--yellow); }
+    .stat-bar-fill.alert { background:var(--red); }
+
+    /* MAIN GRID */
+    .main-grid { display:grid; grid-template-columns:1fr 320px; gap:18px; align-items:start; }
+    @media(max-width:960px){.main-grid{grid-template-columns:1fr}}
+
+    /* SIM PANEL */
+    .sim-panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
+    .panel-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:12px 18px; border-bottom:1px solid var(--border); background:var(--surface2);
+    }
+    .panel-title { font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); }
+    .dot-btns { display:flex; gap:7px; }
+    .dot-btn  { width:10px; height:10px; border-radius:50%; }
+    .dot-btn.r{background:#ef5350} .dot-btn.y{background:#f9a825} .dot-btn.g{background:#4caf50}
+
+    /*
+      IFRAME CLIPPING STRATEGY
+      ========================
+      Wokwi embed has:
+        - Top navbar ~52px  (logo, buttons, project name)
+        - Left sidebar ~260px (file/component tree)
+        - Bottom bar ~38px
+      
+      We shift the iframe by these offsets (negative top/left),
+      then expand width/height to compensate so the circuit canvas
+      fills our viewport. Overflow:hidden on the parent clips everything outside.
+    */
+    .sim-viewport {
+      position: relative;
+      width: 100%;
+      height: 555px;
+      overflow: hidden;
+      background: #111a10;
+    }
+
+    .sim-viewport iframe {
+      position: absolute;
+      top: -52px;
+      /* Push iframe left so the code editor (left ~42%) slides off-screen.
+         We enlarge width to compensate so the circuit canvas still fills. */
+      left: -62%;
+      width: 162%;
+      height: calc(100% + 94px);
+      border: none;
+      pointer-events: all;
+    }
+
+    /* Thin painted borders to hide any pixel bleed at edges */
+    .mask { position: absolute; background: var(--surface2); z-index: 4; pointer-events: none; }
+    .mask-t { top:0;    left:0; right:0;  height:3px; }
+    .mask-b { bottom:0; left:0; right:0;  height:3px; }
+    .mask-l { top:0; bottom:0; left:0;    width:3px; }
+    .mask-r { top:0; bottom:0; right:0;   width:3px; }
+
+    /*
+      LEFT-SIDE COVER: hides any residual Wokwi code/file panel
+      that wasn't fully pushed out by the iframe offset.
+    */
+    .code-blocker {
+      position: absolute; top:0; left:0; bottom:0;
+      width: 18px;
+      background: var(--surface);
+      z-index: 6; pointer-events: none;
+    }
+
+    /* GreenGuard branded overlay in bottom-right corner */
+    .sim-badge {
+      position: absolute; bottom:12px; right:12px; z-index: 10;
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(11,18,9,0.85);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 5px 10px;
+      font-family: var(--mono); font-size: .6rem;
+      color: var(--text-muted); letter-spacing: .08em;
+      backdrop-filter: blur(8px); pointer-events: none;
+    }
+    .sim-badge .bdot { width:5px; height:5px; border-radius:50%; background:var(--green); animation:pulse 1.6s infinite; }
+
+    /* Top-left corner label */
+    .sim-corner {
+      position: absolute; top:10px; left:10px; z-index: 10;
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(11,18,9,0.82);
+      border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px 10px;
+      font-family: var(--mono); font-size: .6rem;
+      color: var(--green-light); letter-spacing: .08em;
+      backdrop-filter: blur(8px); pointer-events: none;
+    }
+
+    /* Loading spinner */
+    .sim-loader {
+      position: absolute; inset: 0; z-index: 20;
+      background: var(--surface2);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+      transition: opacity .6s ease;
+    }
+    .sim-loader.hidden { opacity:0; pointer-events:none; }
+    .loader-ring { width:38px; height:38px; border:3px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .9s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .loader-text { font-family:var(--mono); font-size:.7rem; color:var(--text-muted); letter-spacing:.1em; }
+
+    /* SIDE COLUMN */
+    .side-col { display:flex; flex-direction:column; gap:14px; }
+    .info-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+    .info-card h3 { font-family:var(--mono); font-size:.68rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; }
+
+    .device-list { display:flex; flex-direction:column; gap:8px; }
+    .device-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:9px 12px; background:var(--surface2);
+      border-radius:8px; border:1px solid var(--border); font-size:.8rem;
+    }
+    .device-name { display:flex; align-items:center; gap:8px; color:var(--text); }
+    .device-status { font-family:var(--mono); font-size:.6rem; padding:3px 8px; border-radius:10px; }
+    .device-status.online { background:rgba(76,175,80,.15); color:var(--green-light); border:1px solid var(--green-dim); }
+    .device-status.idle   { background:rgba(249,168,37,.1); color:var(--yellow); border:1px solid rgba(249,168,37,.3); }
+
+    .log-list { display:flex; flex-direction:column; gap:7px; max-height:220px; overflow-y:auto; }
+    .log-list::-webkit-scrollbar{width:3px}
+    .log-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+    .log-item { display:flex; gap:9px; align-items:flex-start; font-size:.78rem; padding-bottom:7px; border-bottom:1px solid var(--border); animation:fadeSlide .35s ease; }
+    .log-item:last-child{border-bottom:none;padding-bottom:0}
+    @keyframes fadeSlide{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+    .log-dot{width:6px;height:6px;border-radius:50%;margin-top:4px;flex-shrink:0}
+    .log-dot.ok{background:var(--green)} .log-dot.warn{background:var(--yellow)} .log-dot.err{background:var(--red)}
+    .log-time{font-family:var(--mono);font-size:.6rem;color:var(--text-muted)}
+    .log-msg{color:var(--text);line-height:1.4}
+
+    footer {
+      position:relative;z-index:1;text-align:center;padding:18px;
+      font-family:var(--mono);font-size:.62rem;color:var(--text-muted);
+      letter-spacing:.08em;border-top:1px solid var(--border);margin-top:8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌿</div>
+    <div class="logo-text">GreenGuard <span>/ IoT Platform</span></div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="timestamp" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<div class="page">
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Temperature</div>
+      <div class="stat-value" id="s-temp">28.4°</div>
+      <div class="stat-unit">Celsius · optimal</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-temp" style="width:57%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Humidity</div>
+      <div class="stat-value warn" id="s-hum">72%</div>
+      <div class="stat-unit">Relative · elevated</div>
+      <div class="stat-bar"><div class="stat-bar-fill warn" id="b-hum" style="width:72%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Soil Moisture</div>
+      <div class="stat-value" id="s-soil">61%</div>
+      <div class="stat-unit">VWC · healthy</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-soil" style="width:61%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Light Level</div>
+      <div class="stat-value" id="s-light">840</div>
+      <div class="stat-unit">Lux · bright</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-light" style="width:84%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">CO₂</div>
+      <div class="stat-value" id="s-co2">412</div>
+      <div class="stat-unit">ppm · normal</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-co2" style="width:41%"></div></div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <div class="sim-panel">
+      <div class="panel-header">
+        <span class="panel-title">⚡ Circuit Simulation — ESP32 Node</span>
+        <div class="dot-btns">
+          <div class="dot-btn r"></div>
+          <div class="dot-btn y"></div>
+          <div class="dot-btn g"></div>
+        </div>
+      </div>
+
+      <div class="sim-viewport">
+        <div class="sim-loader" id="loader">
+          <div class="loader-ring"></div>
+          <div class="loader-text">INITIALISING SIMULATION…</div>
+        </div>
+
+        <iframe
+          id="wokwi-frame"
+          src="https://wokwi.com/projects/458831926709927937/embed?panel=diagram"
+          title="GreenGuard Circuit Simulation"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          onload="document.getElementById('loader').classList.add('hidden')"
+        ></iframe>
+
+        <!-- Edge masks -->
+        <div class="mask mask-t"></div>
+        <div class="mask mask-b"></div>
+        <div class="mask mask-l"></div>
+        <div class="mask mask-r"></div>
+        <!-- Solid block over leftover Wokwi code panel area -->
+        <div class="code-blocker"></div>
+
+        <!-- Our branding badges -->
+        <div class="sim-corner">🌿 GREENGUARD</div>
+        <div class="sim-badge"><div class="bdot"></div>ESP32 · LIVE</div>
+      </div>
+    </div>
+
+    <div class="side-col">
+
+      <div class="info-card">
+        <h3>Connected Devices</h3>
+        <div class="device-list">
+          <div class="device-row"><div class="device-name">🌡️ DHT22 Sensor</div><span class="device-status online">ONLINE</span></div>
+          <div class="device-row"><div class="device-name">💧 Soil Probe</div><span class="device-status online">ONLINE</span></div>
+          <div class="device-row"><div class="device-name">☀️ LDR Module</div><span class="device-status online">ONLINE</span></div>
+          <div class="device-row"><div class="device-name">🔁 Relay Switch</div><span class="device-status idle">IDLE</span></div>
+          <div class="device-row"><div class="device-name">📡 ESP32 Node</div><span class="device-status online">ONLINE</span></div>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <h3>Activity Log</h3>
+        <div class="log-list" id="log-list">
+          <div class="log-item">
+            <div class="log-dot ok"></div>
+            <div><div class="log-time">system</div><div class="log-msg">GreenGuard platform initialized</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<footer>GREENGUARD IoT PLATFORM &nbsp;·&nbsp; LIVE MONITORING &nbsp;·&nbsp; v2.1.0</footer>
+
+<script>
+  // Clock
+  function tick() {
+    document.getElementById('clock').textContent =
+      new Date().toLocaleTimeString('en-IN', { hour12: false });
+  }
+  tick(); setInterval(tick, 1000);
+
+  // Sensor drift
+  const sensors = {
+    temp:  { val:28.4, min:22, max:38,   step:0.3  },
+    hum:   { val:72,   min:40, max:95,   step:1.2  },
+    soil:  { val:61,   min:20, max:90,   step:1.5  },
+    light: { val:840,  min:100,max:1000, step:15   },
+    co2:   { val:412,  min:380,max:600,  step:4    },
+  };
+  function drift(s) {
+    s.val += (Math.random()-.5)*2*s.step;
+    s.val = Math.max(s.min, Math.min(s.max, s.val));
+    return s.val;
+  }
+  function setCard(vid,val,vc,bid,pct,bc) {
+    const v=document.getElementById(vid); v.textContent=val; v.className='stat-value '+vc;
+    const b=document.getElementById(bid); b.style.width=Math.max(3,Math.min(100,pct))+'%'; b.className='stat-bar-fill '+bc;
+  }
+  function updateStats() {
+    const t=drift(sensors.temp), h=drift(sensors.hum), s=drift(sensors.soil), l=drift(sensors.light), c=drift(sensors.co2);
+    const tc=t>34?'alert':t>30?'warn':'', hc=h>80?'alert':h>65?'warn':'';
+    setCard('s-temp',`${t.toFixed(1)}°`,tc,'b-temp',(t-22)/(38-22)*100,tc);
+    setCard('s-hum',`${Math.round(h)}%`,hc,'b-hum',h,hc);
+    setCard('s-soil',`${Math.round(s)}%`,'','b-soil',s,'');
+    setCard('s-light',Math.round(l),'','b-light',l/10,'');
+    setCard('s-co2',Math.round(c),'','b-co2',(c-380)/(600-380)*100,'');
+  }
+  setInterval(updateStats, 2200);
+
+  // Log
+  const msgs=[
+    ['ok','Soil moisture reading nominal'],['ok','Temperature within safe range'],
+    ['warn','Humidity spike detected'],['ok','Light sensor calibrated'],
+    ['ok','ESP32 heartbeat received'],['warn','CO₂ trending upward'],
+    ['ok','Relay toggle — irrigation pulse'],['ok','Data sync complete'],
+    ['err','Soil probe timeout — retrying'],['ok','DHT22 reconnected'],
+  ];
+  let li=0;
+  function addLog() {
+    const [type,msg]=msgs[li++%msgs.length];
+    const t=new Date().toLocaleTimeString('en-IN',{hour12:false});
+    const list=document.getElementById('log-list');
+    const el=document.createElement('div'); el.className='log-item';
+    el.innerHTML=`<div class="log-dot ${type}"></div><div><div class="log-time">${t}</div><div class="log-msg">${msg}</div></div>`;
+    list.prepend(el);
+    while(list.children.length>8) list.removeChild(list.lastChild);
+  }
+  setInterval(addLog, 4000);
+  setTimeout(()=>document.getElementById('loader').classList.add('hidden'), 9000);
+</script>
+</body>
+</html>
