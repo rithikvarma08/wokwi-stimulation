@@ -89,6 +89,128 @@
     .stat-bar-fill.warn  { background:var(--yellow); }
     .stat-bar-fill.alert { background:var(--red); }
 
+    /* ── CARD ALERT PULSE ── */
+    @keyframes cardPulse {
+      0%,100% { border-color:var(--red); box-shadow:0 0 0 0 rgba(239,83,80,0); }
+      50%      { border-color:var(--red); box-shadow:0 0 0 6px rgba(239,83,80,0.18); }
+    }
+    .stat-card.in-alert {
+      border-color: var(--red) !important;
+      animation: cardPulse 1.5s ease-in-out infinite;
+    }
+    .stat-card.in-alert .stat-value { color: #ff5252; }
+
+    /* ── TOAST CONTAINER (fixed top-right) ── */
+    #toast-container {
+      position: fixed;
+      top: 76px; right: 20px;
+      z-index: 9999;
+      display: flex; flex-direction: column; gap: 10px;
+      width: 340px;
+      pointer-events: none;
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: #0c1a0a;
+      border: 1px solid rgba(239,83,80,0.5);
+      border-left: 3px solid var(--red);
+      border-radius: 12px;
+      padding: 14px 14px 12px;
+      pointer-events: all;
+      animation: toastIn .35s cubic-bezier(.34,1.56,.64,1) forwards;
+    }
+    .toast.recovery {
+      border-color: rgba(76,175,80,0.5);
+      border-left-color: var(--green);
+    }
+    .toast.removing { animation: toastOut .28s ease forwards; }
+    @keyframes toastIn {
+      from { opacity:0; transform:translateX(40px) scale(0.96); }
+      to   { opacity:1; transform:translateX(0) scale(1); }
+    }
+    @keyframes toastOut {
+      from { opacity:1; transform:translateX(0) scale(1); max-height:200px; }
+      to   { opacity:0; transform:translateX(40px) scale(0.94); max-height:0; padding:0; margin:0; }
+    }
+
+    .toast-icon-wrap {
+      width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+      background: rgba(239,83,80,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .toast.recovery .toast-icon-wrap { background: rgba(76,175,80,0.15); }
+
+    .toast-body { flex: 1; min-width: 0; }
+    .toast-title {
+      font-family: var(--mono); font-size: .62rem;
+      letter-spacing: .1em; text-transform: uppercase;
+      color: #ff5252; margin-bottom: 3px;
+    }
+    .toast.recovery .toast-title { color: var(--green-light); }
+    .toast-msg { font-size: .8rem; color: var(--text); line-height: 1.4; }
+    .toast-threshold {
+      font-family: var(--mono); font-size: .62rem;
+      color: var(--text-muted); margin-top: 5px;
+    }
+    .toast-progress {
+      height: 2px; background: rgba(239,83,80,0.2);
+      border-radius: 1px; margin-top: 10px; overflow: hidden;
+    }
+    .toast.recovery .toast-progress { background: rgba(76,175,80,0.2); }
+    .toast-bar {
+      height: 100%; border-radius: 1px;
+      background: var(--red); width: 100%;
+      transition: width linear;
+    }
+    .toast.recovery .toast-bar { background: var(--green); }
+    .toast-close {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 12px;
+      padding: 0; flex-shrink: 0; line-height: 1;
+    }
+    .toast-close:hover { color: var(--text); }
+
+    /* ── ALERT SUMMARY BANNER ── */
+    .alert-banner {
+      display: none;
+      margin-bottom: 18px;
+      background: rgba(239,83,80,0.06);
+      border: 1px solid rgba(239,83,80,0.4);
+      border-left: 4px solid var(--red);
+      border-radius: 12px;
+      padding: 14px 18px;
+      animation: fadeSlide .3s ease;
+    }
+    .alert-banner.visible { display: block; }
+    .alert-banner-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .alert-banner-title {
+      font-family: var(--mono); font-size: .68rem;
+      letter-spacing: .1em; color: #ff5252;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .alert-blink { animation: blink 1s step-end infinite; display:inline-block; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .alert-count-badge {
+      background: var(--red); color: #fff;
+      font-family: var(--mono); font-size: .58rem; font-weight: 700;
+      border-radius: 10px; padding: 2px 8px;
+    }
+    .alert-list { display: flex; flex-wrap: wrap; gap: 7px; }
+    .alert-tag {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(239,83,80,0.1);
+      border: 1px solid rgba(239,83,80,0.3);
+      border-radius: 20px; padding: 4px 12px;
+      font-size: .7rem; color: #ff8a80;
+      font-family: var(--mono);
+    }
+
     /* MAIN GRID */
     .main-grid { display:grid; grid-template-columns:1fr 320px; gap:18px; align-items:start; }
     @media(max-width:960px){.main-grid{grid-template-columns:1fr}}
@@ -247,9 +369,9 @@
   <div class="alert-banner" id="alert-banner">
     <div class="alert-banner-header">
       <div class="alert-banner-title">
-        <span class="alert-blink">🚨</span>
+        <span class="alert-blink">&#9888;</span>
         THRESHOLD ALERT — IMMEDIATE ATTENTION REQUIRED
-        <span class="alert-count" id="alert-count">0</span>
+        <span class="alert-count-badge" id="alert-count">0</span>
       </div>
     </div>
     <div class="alert-list" id="alert-list"></div>
@@ -429,9 +551,9 @@
   function pulseCard(vid, isAlert) {
     const card = document.getElementById(vid).closest('.stat-card');
     if (isAlert) {
-      card.classList.add('alert-pulse');
+      card.classList.add('in-alert');
     } else {
-      card.classList.remove('alert-pulse');
+      card.classList.remove('in-alert');
     }
   }
 
@@ -505,26 +627,32 @@
     }
   }
 
-  // ── Alert Banner ───────────────────────────────────
-  // Track shown toasts to avoid spamming same alert every 15s
+  // ── Alert System ───────────────────────────────────
   const shownAlerts = new Set();
 
-  function showToast(icon, title, msg, value) {
+  function fireToast(icon, title, msg, threshold, isRecovery) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = 'toast' + (isRecovery ? ' recovery' : '');
     toast.innerHTML = `
-      <div class="toast-icon">${icon}</div>
+      <div class="toast-icon-wrap">${icon}</div>
       <div class="toast-body">
         <div class="toast-title">${title}</div>
         <div class="toast-msg">${msg}</div>
-        <div class="toast-value">${value}</div>
-        <div class="toast-progress"><div class="toast-progress-bar"></div></div>
+        <div class="toast-threshold">${threshold}</div>
+        <div class="toast-progress"><div class="toast-bar" id="tbar-${Date.now()}"></div></div>
       </div>
-      <button class="toast-close" onclick="dismissToast(this.closest('.toast'))">✕</button>`;
-    container.appendChild(toast);
-    // Auto-dismiss after 6s
-    setTimeout(() => dismissToast(toast), 6000);
+      <button class="toast-close" onclick="dismissToast(this.closest('.toast'))">&#x2715;</button>`;
+    container.prepend(toast);
+    const bar = toast.querySelector('.toast-bar');
+    const dur = isRecovery ? 3000 : 6000;
+    let w = 100;
+    const step = 100 / (dur / 80);
+    const iv = setInterval(() => {
+      w -= step; bar.style.width = Math.max(0,w) + '%';
+      if (w <= 0) clearInterval(iv);
+    }, 80);
+    setTimeout(() => dismissToast(toast), dur);
   }
 
   function dismissToast(toast) {
@@ -537,21 +665,24 @@
     const banner = document.getElementById('alert-banner');
     const list   = document.getElementById('alert-list');
     const count  = document.getElementById('alert-count');
-    list.innerHTML = alerts.map(a => `<span class="alert-tag">⚠ ${a.text}</span>`).join('');
+    list.innerHTML = alerts.map(a => `<span class="alert-tag">&#9888; ${a.text}</span>`).join('');
     count.textContent = alerts.length;
     banner.classList.add('visible');
-    // Only toast NEW alerts
     alerts.forEach(a => {
       if (!shownAlerts.has(a.key)) {
         shownAlerts.add(a.key);
-        showToast(a.icon, 'THRESHOLD EXCEEDED', a.text, a.value);
+        fireToast(a.icon, 'THRESHOLD EXCEEDED', a.text, a.value, false);
       }
     });
   }
 
   function hideAlertBanner() {
+    const prevAlerts = new Set(shownAlerts);
     document.getElementById('alert-banner').classList.remove('visible');
     shownAlerts.clear();
+    if (prevAlerts.size > 0) {
+      fireToast('&#9989;', 'ALL CLEAR', 'All sensor values back to normal', 'System operating within safe thresholds', true);
+    }
   }
 
   // Fetch immediately then every 15s (ThingSpeak free limit: 15s)
