@@ -73,8 +73,8 @@
     .page { position: relative; z-index: 1; max-width: 1340px; margin: 0 auto; padding: 28px 24px 48px; }
 
     /* STAT CARDS */
-    .stats-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; margin-bottom: 24px; }
-    @media(max-width:900px){.stats-row{grid-template-columns:repeat(3,1fr)}}
+    .stats-row { display: grid; grid-template-columns: repeat(6,1fr); gap: 12px; margin-bottom: 24px; }
+    @media(max-width:1100px){.stats-row{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:580px){.stats-row{grid-template-columns:repeat(2,1fr)}}
 
     .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; transition: border-color .2s; }
@@ -240,36 +240,57 @@
 
 <div class="page">
 
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Alert Summary Banner -->
+  <div class="alert-banner" id="alert-banner">
+    <div class="alert-banner-header">
+      <div class="alert-banner-title">
+        <span class="alert-blink">🚨</span>
+        THRESHOLD ALERT — IMMEDIATE ATTENTION REQUIRED
+        <span class="alert-count" id="alert-count">0</span>
+      </div>
+    </div>
+    <div class="alert-list" id="alert-list"></div>
+  </div>
+
   <div class="stats-row">
     <div class="stat-card">
-      <div class="stat-label">Temperature</div>
-      <div class="stat-value" id="s-temp">28.4°</div>
-      <div class="stat-unit">Celsius · optimal</div>
-      <div class="stat-bar"><div class="stat-bar-fill" id="b-temp" style="width:57%"></div></div>
-    </div>
-    <div class="stat-card">
       <div class="stat-label">Humidity</div>
-      <div class="stat-value warn" id="s-hum">72%</div>
-      <div class="stat-unit">Relative · elevated</div>
-      <div class="stat-bar"><div class="stat-bar-fill warn" id="b-hum" style="width:72%"></div></div>
+      <div class="stat-value" id="s-hum">--%</div>
+      <div class="stat-unit" id="u-hum">DHT22 · loading…</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-hum" style="width:0%"></div></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Soil Moisture</div>
-      <div class="stat-value" id="s-soil">61%</div>
-      <div class="stat-unit">VWC · healthy</div>
-      <div class="stat-bar"><div class="stat-bar-fill" id="b-soil" style="width:61%"></div></div>
+      <div class="stat-label">Temperature</div>
+      <div class="stat-value" id="s-temp">--°</div>
+      <div class="stat-unit" id="u-temp">DHT22 · loading…</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-temp" style="width:0%"></div></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">Light Level</div>
-      <div class="stat-value" id="s-light">840</div>
-      <div class="stat-unit">Lux · bright</div>
-      <div class="stat-bar"><div class="stat-bar-fill" id="b-light" style="width:84%"></div></div>
+      <div class="stat-label">Ammonia / Gas</div>
+      <div class="stat-value" id="s-mq2">---</div>
+      <div class="stat-unit" id="u-mq2">MQ-2 · loading…</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-mq2" style="width:0%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Water Temp</div>
+      <div class="stat-value" id="s-wtemp">--°</div>
+      <div class="stat-unit" id="u-wtemp">DS18B20 · loading…</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-wtemp" style="width:0%"></div></div>
     </div>
     <div class="stat-card">
       <div class="stat-label">CO₂</div>
-      <div class="stat-value" id="s-co2">412</div>
-      <div class="stat-unit">ppm · normal</div>
-      <div class="stat-bar"><div class="stat-bar-fill" id="b-co2" style="width:41%"></div></div>
+      <div class="stat-value" id="s-co2">---</div>
+      <div class="stat-unit" id="u-co2">MH-Z19 · loading…</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-co2" style="width:0%"></div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Ethylene Gas</div>
+      <div class="stat-value" id="s-eth">---</div>
+      <div class="stat-unit" id="u-eth">MICS6814 · loading…</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="b-eth" style="width:0%"></div></div>
     </div>
   </div>
 
@@ -343,61 +364,220 @@
 <footer>GREENGUARD IoT PLATFORM &nbsp;·&nbsp; LIVE MONITORING &nbsp;·&nbsp; v2.1.0</footer>
 
 <script>
-  // Clock
+  // ── Clock ──────────────────────────────────────────
   function tick() {
     document.getElementById('clock').textContent =
       new Date().toLocaleTimeString('en-IN', { hour12: false });
   }
   tick(); setInterval(tick, 1000);
 
-  // Sensor drift
-  const sensors = {
-    temp:  { val:28.4, min:22, max:38,   step:0.3  },
-    hum:   { val:72,   min:40, max:95,   step:1.2  },
-    soil:  { val:61,   min:20, max:90,   step:1.5  },
-    light: { val:840,  min:100,max:1000, step:15   },
-    co2:   { val:412,  min:380,max:600,  step:4    },
+  // ── ThingSpeak config ──────────────────────────────
+  const TS_CHANNEL = '3295518';
+  const TS_KEY     = 'H5JPPXBLZW4M8M9F';
+  // Field mapping (adjust if your Wokwi sketch uses different fields)
+  // field1=Temperature, field2=Humidity, field3=WaterTemp,
+  // field4=MQ2, field5=CO2, field6=Ethylene
+  const FIELDS = {
+    hum:   'field1',
+    temp:  'field2',
+    mq2:   'field3',
+    wtemp: 'field4',
+    co2:   'field5',
+    eth:   'field6',
   };
-  function drift(s) {
-    s.val += (Math.random()-.5)*2*s.step;
-    s.val = Math.max(s.min, Math.min(s.max, s.val));
-    return s.val;
-  }
-  function setCard(vid,val,vc,bid,pct,bc) {
-    const v=document.getElementById(vid); v.textContent=val; v.className='stat-value '+vc;
-    const b=document.getElementById(bid); b.style.width=Math.max(3,Math.min(100,pct))+'%'; b.className='stat-bar-fill '+bc;
-  }
-  function updateStats() {
-    const t=drift(sensors.temp), h=drift(sensors.hum), s=drift(sensors.soil), l=drift(sensors.light), c=drift(sensors.co2);
-    const tc=t>34?'alert':t>30?'warn':'', hc=h>80?'alert':h>65?'warn':'';
-    setCard('s-temp',`${t.toFixed(1)}°`,tc,'b-temp',(t-22)/(38-22)*100,tc);
-    setCard('s-hum',`${Math.round(h)}%`,hc,'b-hum',h,hc);
-    setCard('s-soil',`${Math.round(s)}%`,'','b-soil',s,'');
-    setCard('s-light',Math.round(l),'','b-light',l/10,'');
-    setCard('s-co2',Math.round(c),'','b-co2',(c-380)/(600-380)*100,'');
-  }
-  setInterval(updateStats, 2200);
 
-  // Log
-  const msgs=[
-    ['ok','Soil moisture reading nominal'],['ok','Temperature within safe range'],
-    ['warn','Humidity spike detected'],['ok','Light sensor calibrated'],
-    ['ok','ESP32 Signal received'],['warn','CO₂ trending upward'],
-    ['ok','Relay toggle — irrigation pulse'],['ok','Data sync complete'],
-    ['err','Soil probe timeout — retrying'],['ok','DHT22 reconnected'],
-  ];
-  let li=0;
-  function addLog() {
-    const [type,msg]=msgs[li++%msgs.length];
-    const t=new Date().toLocaleTimeString('en-IN',{hour12:false});
-    const list=document.getElementById('log-list');
-    const el=document.createElement('div'); el.className='log-item';
-    el.innerHTML=`<div class="log-dot ${type}"></div><div><div class="log-time">${t}</div><div class="log-msg">${msg}</div></div>`;
-    list.prepend(el);
-    while(list.children.length>8) list.removeChild(list.lastChild);
+  // ── Alert Thresholds ──────────────────────────────
+  const THRESHOLDS = {
+    temp:  { low: 10,  high: 35,   unit: '°C' },
+    hum:   { low: 30,  high: 85,   unit: '%'  },
+    wtemp: { low: 15,  high: 30,   unit: '°C' },
+    mq2:   { low: null,high: 50,   unit: 'ppm'},
+    co2:   { low: null,high: 2000, unit: 'ppm'},
+    eth:   { low: null,high: 10,   unit: 'ppm'},
+  };
+
+  // ── Helpers ────────────────────────────────────────
+  function setCard(vid, val, vc, bid, pct, unit) {
+    const v = document.getElementById(vid);
+    v.textContent = val;
+    v.className = 'stat-value ' + (vc || '');
+    const b = document.getElementById(bid);
+    b.style.width = Math.max(2, Math.min(100, pct)) + '%';
+    b.className = 'stat-bar-fill ' + (vc || '');
+    if (unit) document.getElementById('u-' + vid.replace('s-','')).textContent = unit;
   }
-  setInterval(addLog, 4000);
-  setTimeout(()=>document.getElementById('loader').classList.add('hidden'), 9000);
+
+  function clamp(v, min, max) { return Math.max(0, Math.min(100, (v - min) / (max - min) * 100)); }
+
+  function classifyThreshold(key, val) {
+    const t = THRESHOLDS[key];
+    if (!t) return '';
+    if (t.high !== null && val > t.high) return 'alert';
+    if (t.low  !== null && val < t.low)  return 'alert';
+    return '';
+  }
+
+  function statusText(key, val) {
+    const t = THRESHOLDS[key];
+    if (!t) return 'normal';
+    if (t.high !== null && val > t.high) return `⚠ EXCEEDS ${t.high}${t.unit}`;
+    if (t.low  !== null && val < t.low)  return `⚠ BELOW ${t.low}${t.unit}`;
+    return 'normal';
+  }
+
+  // Pulse animation on alert cards
+  function pulseCard(vid, isAlert) {
+    const card = document.getElementById(vid).closest('.stat-card');
+    if (isAlert) {
+      card.classList.add('alert-pulse');
+    } else {
+      card.classList.remove('alert-pulse');
+    }
+  }
+
+  // ── Fetch from ThingSpeak ──────────────────────────
+  async function fetchThingSpeak() {
+    try {
+      const url = `https://api.thingspeak.com/channels/${TS_CHANNEL}/feeds.json?api_key=${TS_KEY}&results=1`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      const feed = data.feeds && data.feeds[0];
+      if (!feed) return;
+
+      const temp  = parseFloat(feed[FIELDS.temp]);
+      const hum   = parseFloat(feed[FIELDS.hum]);
+      const wtemp = parseFloat(feed[FIELDS.wtemp]);
+      const mq2   = parseFloat(feed[FIELDS.mq2]);
+      const co2   = parseFloat(feed[FIELDS.co2]);
+      const eth   = parseFloat(feed[FIELDS.eth]);
+
+      const alerts = [];
+
+      if (!isNaN(temp)) {
+        const vc = classifyThreshold('temp', temp);
+        setCard('s-temp', `${temp.toFixed(1)}°`, vc, 'b-temp', clamp(temp,10,45), `DHT22 · ${statusText('temp',temp)}`);
+        pulseCard('s-temp', vc==='alert');
+        if (vc==='alert') alerts.push({ key:'temp', icon:'🌡️', text:`Temp ${temp.toFixed(1)}°C — ${temp>35?'Too Hot':'Too Cold'}`, value:`Threshold: ${temp>35?'max 35°C':'min 10°C'}` });
+      }
+      if (!isNaN(hum)) {
+        const vc = classifyThreshold('hum', hum);
+        setCard('s-hum', `${hum.toFixed(1)}%`, vc, 'b-hum', clamp(hum,0,100), `DHT22 · ${statusText('hum',hum)}`);
+        pulseCard('s-hum', vc==='alert');
+        if (vc==='alert') alerts.push({ key:'hum', icon:'💧', text:`Humidity ${hum.toFixed(1)}% — ${hum>85?'Fungus Risk':'Too Dry'}`, value:`Threshold: ${hum>85?'max 85%':'min 30%'}` });
+      }
+      if (!isNaN(wtemp)) {
+        const vc = classifyThreshold('wtemp', wtemp);
+        setCard('s-wtemp', `${wtemp.toFixed(1)}°`, vc, 'b-wtemp', clamp(wtemp,10,40), `DS18B20 · ${statusText('wtemp',wtemp)}`);
+        pulseCard('s-wtemp', vc==='alert');
+        if (vc==='alert') alerts.push({ key:'wtemp', icon:'💦', text:`Water Temp ${wtemp.toFixed(1)}°C — ${wtemp>30?'Harmful for Roots':'Too Cold'}`, value:`Threshold: ${wtemp>30?'max 30°C':'min 15°C'}` });
+      }
+      if (!isNaN(mq2)) {
+        const vc = classifyThreshold('mq2', mq2);
+        setCard('s-mq2', `${mq2.toFixed(1)}`, vc, 'b-mq2', clamp(mq2,0,200), `MQ-2 · ${statusText('mq2',mq2)}`);
+        pulseCard('s-mq2', vc==='alert');
+        if (vc==='alert') alerts.push({ key:'mq2', icon:'🧪', text:`Ammonia ${mq2.toFixed(1)} ppm — Unsafe Air Quality`, value:`Threshold: max 50 ppm` });
+      }
+      if (!isNaN(co2)) {
+        const vc = classifyThreshold('co2', co2);
+        setCard('s-co2', `${Math.round(co2)}`, vc, 'b-co2', clamp(co2,400,3000), `MH-Z19 · ${statusText('co2',co2)}`);
+        pulseCard('s-co2', vc==='alert');
+        if (vc==='alert') alerts.push({ key:'co2', icon:'🌫️', text:`CO₂ ${Math.round(co2)} ppm — Danger Level`, value:`Threshold: max 2000 ppm` });
+      }
+      if (!isNaN(eth)) {
+        const vc = classifyThreshold('eth', eth);
+        setCard('s-eth', `${eth.toFixed(1)}`, vc, 'b-eth', clamp(eth,0,30), `MICS6814 · ${statusText('eth',eth)}`);
+        pulseCard('s-eth', vc==='alert');
+        if (vc==='alert') alerts.push({ key:'eth', icon:'🍃', text:`Ethylene ${eth.toFixed(1)} ppm — Spoilage Risk`, value:`Threshold: max 10 ppm` });
+      }
+
+      // Log alerts or sync
+      if (alerts.length > 0) {
+        alerts.forEach(a => pushLog('err', `${a.icon} ${a.text}`));
+        showAlertBanner(alerts);
+      } else {
+        pushLog('ok', `ThingSpeak sync — all values normal`);
+        hideAlertBanner();
+      }
+
+    } catch(err) {
+      pushLog('err', 'ThingSpeak fetch failed — retrying');
+      console.error(err);
+    }
+  }
+
+  // ── Alert Banner ───────────────────────────────────
+  // Track shown toasts to avoid spamming same alert every 15s
+  const shownAlerts = new Set();
+
+  function showToast(icon, title, msg, value) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `
+      <div class="toast-icon">${icon}</div>
+      <div class="toast-body">
+        <div class="toast-title">${title}</div>
+        <div class="toast-msg">${msg}</div>
+        <div class="toast-value">${value}</div>
+        <div class="toast-progress"><div class="toast-progress-bar"></div></div>
+      </div>
+      <button class="toast-close" onclick="dismissToast(this.closest('.toast'))">✕</button>`;
+    container.appendChild(toast);
+    // Auto-dismiss after 6s
+    setTimeout(() => dismissToast(toast), 6000);
+  }
+
+  function dismissToast(toast) {
+    if (!toast || toast.classList.contains('removing')) return;
+    toast.classList.add('removing');
+    setTimeout(() => toast.remove(), 300);
+  }
+
+  function showAlertBanner(alerts) {
+    const banner = document.getElementById('alert-banner');
+    const list   = document.getElementById('alert-list');
+    const count  = document.getElementById('alert-count');
+    list.innerHTML = alerts.map(a => `<span class="alert-tag">⚠ ${a.text}</span>`).join('');
+    count.textContent = alerts.length;
+    banner.classList.add('visible');
+    // Only toast NEW alerts
+    alerts.forEach(a => {
+      if (!shownAlerts.has(a.key)) {
+        shownAlerts.add(a.key);
+        showToast(a.icon, 'THRESHOLD EXCEEDED', a.text, a.value);
+      }
+    });
+  }
+
+  function hideAlertBanner() {
+    document.getElementById('alert-banner').classList.remove('visible');
+    shownAlerts.clear();
+  }
+
+  // Fetch immediately then every 15s (ThingSpeak free limit: 15s)
+  fetchThingSpeak();
+  setInterval(fetchThingSpeak, 15000);
+
+  // ── Activity Log ───────────────────────────────────
+  function pushLog(type, msg) {
+    const t = new Date().toLocaleTimeString('en-IN', { hour12:false });
+    const list = document.getElementById('log-list');
+    const el = document.createElement('div');
+    el.className = 'log-item';
+    el.innerHTML = `<div class="log-dot ${type}"></div><div><div class="log-time">${t}</div><div class="log-msg">${msg}</div></div>`;
+    list.prepend(el);
+    while (list.children.length > 8) list.removeChild(list.lastChild);
+  }
+
+  // Seed log
+  const seedMsgs = [
+    ['ok',  'GreenGuard platform initialized'],
+    ['ok',  'ThingSpeak channel connected'],
+    ['ok',  'ESP32 heartbeat received'],
+  ];
+  seedMsgs.forEach((m,i) => setTimeout(() => pushLog(m[0], m[1]), i * 800));
+
+  setTimeout(() => document.getElementById('loader').classList.add('hidden'), 9000);
 </script>
 </body>
 </html>
